@@ -8,7 +8,6 @@ import { fileURLToPath } from 'url';
 import { Worker, isMainThread, parentPort, workerData, MessagePort } from 'worker_threads';
 import { Story } from './models.js';
 import * as cheerio from 'cheerio';
-import fetch from 'node-fetch';
 
 dotenv.config();
 
@@ -58,32 +57,43 @@ if (isMainThread) {
         }
     }
 
-    async function getImageUrlFromArticle(url: string): Promise<string | null> {
+    function getSourceFromUrl(url: string): string {
         try {
-            const response = await fetch(url);
+            const hostname = new URL(url).hostname;
+            return hostname.replace('www.', '').split('.')[0];
+        } catch (error) {
+            console.error('Error parsing URL:', error);
+            return 'Unknown Source';
+        }
+    }
+    
+    async function getImageUrlFromArticle(url: string): Promise<string | null> {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
+    
+        try {
+            const response = await fetch(url, { signal: controller.signal });
             const html = await response.text();
             const $ = cheerio.load(html);
             
-            // Try to find OpenGraph image
-            let imageUrl = $('meta[property="og:image"]').attr('content');
-            
-            // If no OpenGraph image, try twitter image
-            if (!imageUrl) {
-                imageUrl = $('meta[name="twitter:image"]').attr('content');
-            }
-            
-            // If still no image, try the first img tag
-            if (!imageUrl) {
-                imageUrl = $('img').first().attr('src');
-            }
+            let imageUrl = $('meta[property="og:image"]').attr('content') ||
+                           $('meta[name="twitter:image"]').attr('content') ||
+                           $('img').first().attr('src');
             
             return imageUrl || null;
         } catch (error) {
-            console.error('Error fetching image from article:', error);
+            if (error instanceof Error && error.name === 'AbortError') {
+                console.error('Request timed out for URL:', url);
+            } else {
+                console.error('Error fetching image from article:', error);
+            }
             return null;
+        } finally {
+            clearTimeout(timeoutId);
         }
     }
-
+    
+    
     async function processNewStory(story: Story) {
         const guilds = await storage.getGuildsWithChannel();
         const postedStories = [];
@@ -94,6 +104,7 @@ if (isMainThread) {
                     const hasBeenPosted = await storage.hasStoryBeenPosted(guild.guildId, story.guid);
                     if (!hasBeenPosted) {
                         const imageUrl = await getImageUrlFromArticle(story.link);
+                        const sourceSite = getSourceFromUrl(story.link);
                         
                         const embed = new EmbedBuilder()
                             .setColor('#FFA500')  // Zelda-inspired orange color
@@ -102,16 +113,17 @@ if (isMainThread) {
                             .setDescription(story.contentSnippet 
                                 ? story.contentSnippet.substring(0, 200) + '...' 
                                 : 'Click to read more')
-                            .setTimestamp(story.isoDate ? new Date(story.isoDate) : null)
-                            .setFooter({ text: 'Zelda News Bot' });
+                            .setTimestamp(story.isoDate ? new Date(story.isoDate) : null);
     
                         if (imageUrl) {
                             embed.setImage(imageUrl);
                         }
     
-                        if (story.creator) {
-                            embed.setAuthor({ name: story.creator });
-                        }
+                        // Combine author and source information
+                        const authorAndSource = `${story.creator ? story.creator + ' | ' : ''}${sourceSite}`;
+                        embed.setAuthor({ name: authorAndSource });
+    
+                        embed.setFooter({ text: 'Zelda News Bot' });
     
                         await channel.send({ embeds: [embed] });
                         postedStories.push({ guildId: guild.guildId, storyId: story.guid });
@@ -169,18 +181,16 @@ if (isMainThread) {
 
     function itemMatchesFilters(item: Story): boolean {
         const title = item.title.toLowerCase();
-        const description = item.contentSnippet?.toLowerCase() || '';
         const categories = item.categories?.map(category => category.toLowerCase()) || [];
         return filters.some(filter => 
             title.includes(filter) || 
-            description.includes(filter) || 
             categories.includes(filter)
         );
     }
 
-    // Start checking RSS feeds
+    // Start checking RSS feeds every 15 minutes
     checkRssFeed();
-    setInterval(checkRssFeed, 120000); // Check every 2 minutes
+    setInterval(checkRssFeed, 15 * 60 * 1000); // 15 minutes
 }
 
 // Error handler for unhandled promise rejections
