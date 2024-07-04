@@ -119,4 +119,18 @@ async function hasStoryBeenPosted(guildId: string, storyId: string): Promise<boo
 }
 
 
-export { connectDb, saveGuildChannel, getGuildChannel, removeGuildChannel, savePostedStory, hasStoryBeenPosted, getAllGuilds, getGuildsWithChannel };
+async function batchSavePostedStories(stories: Array<{ guildId: string, storyId: string }>): Promise<void> {
+    const collection: Collection<PostedStory> = client.db("discordBot").collection("postedStories");
+    const operations = stories.map(story => ({
+        updateOne: {
+            filter: { guildId: story.guildId, storyId: story.storyId },
+            update: { $set: { guildId: story.guildId, storyId: story.storyId } },
+            upsert: true
+        }
+    }));
+    await collection.bulkWrite(operations);
+}
+
+
+
+export { connectDb, saveGuildChannel, getGuildChannel, removeGuildChannel, savePostedStory, hasStoryBeenPosted, getAllGuilds, getGuildsWithChannel, batchSavePostedStories };
