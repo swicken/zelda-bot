@@ -6,6 +6,7 @@ dotenv.config();
 
 const uri: string = process.env.MONGODB_URI as string;
 const client: MongoClient = new MongoClient(uri);
+const dbName: string = process.env.MONGODB_DATABASE_NAME || 'zeldaBotDev';
 
 
 async function connectDb(): Promise<void> {
@@ -31,7 +32,7 @@ async function connectDb(): Promise<void> {
 */
 
 async function saveGuildChannel(guildId: string, channelId: string): Promise<void> {
-    const collection: Collection = client.db("discordBot").collection("guildChannels");
+    const collection: Collection = client.db(dbName).collection("guildChannels");
     await collection.updateOne(
         { guildId },
         { $set: { channelId } },
@@ -48,7 +49,7 @@ async function saveGuildChannel(guildId: string, channelId: string): Promise<voi
 */
 
 async function getGuildChannel(guildId: string): Promise<string | null> {
-    const collection: Collection = client.db("discordBot").collection("guildChannels");
+    const collection: Collection = client.db(dbName).collection("guildChannels");
     const doc = await collection.findOne({ guildId });
     return doc ? doc.channelId : null;
 }
@@ -60,7 +61,7 @@ async function getGuildChannel(guildId: string): Promise<string | null> {
     * 
 */
 async function getAllGuilds(): Promise<string[]> {
-    const collection: Collection = client.db("discordBot").collection("guildChannels");
+    const collection: Collection = client.db(dbName).collection("guildChannels");
     const docs = await collection.find({}).toArray();
     return docs.map(doc => doc.guildId);
 }
@@ -71,7 +72,7 @@ async function getAllGuilds(): Promise<string[]> {
  * @returns {Promise<GuildChannel[]>} An array of GuildChannel objects.
  */
 async function getGuildsWithChannel(): Promise<GuildChannel[]> {
-    const collection: Collection<GuildChannel> = client.db("discordBot").collection("guildChannels");
+    const collection: Collection<GuildChannel> = client.db(dbName).collection("guildChannels");
     const docs = await collection.find({ channelId: { $exists: true } }).toArray();
     return docs.map(doc => ({ guildId: doc.guildId, channelId: doc.channelId }));
 }
@@ -87,7 +88,7 @@ async function getGuildsWithChannel(): Promise<GuildChannel[]> {
 * 
 */
 async function removeGuildChannel(guildId: string): Promise<void> {
-    const collection: Collection = client.db("discordBot").collection("guildChannels"); await collection.deleteOne({ guildId });
+    const collection: Collection = client.db(dbName).collection("guildChannels"); await collection.deleteOne({ guildId });
 }
 
 /**
@@ -98,7 +99,7 @@ async function removeGuildChannel(guildId: string): Promise<void> {
  * @returns {Promise<void>}
  */
 async function savePostedStory(guildId: string, storyId: string): Promise<void> {
-    const collection: Collection<PostedStory> = client.db("discordBot").collection("postedStories");
+    const collection: Collection<PostedStory> = client.db(dbName).collection("postedStories");
     await collection.updateOne(
         { guildId, storyId },
         { $set: { guildId, storyId } },
@@ -113,14 +114,14 @@ async function savePostedStory(guildId: string, storyId: string): Promise<void> 
  * @returns {Promise<boolean>}
  */
 async function hasStoryBeenPosted(guildId: string, storyId: string): Promise<boolean> {
-    const collection: Collection<PostedStory> = client.db("discordBot").collection("postedStories");
+    const collection: Collection<PostedStory> = client.db(dbName).collection("postedStories");
     const doc = await collection.findOne({ guildId, storyId });
     return doc != null;
 }
 
 
 async function batchSavePostedStories(stories: Array<{ guildId: string, storyId: string }>): Promise<void> {
-    const collection: Collection<PostedStory> = client.db("discordBot").collection("postedStories");
+    const collection: Collection<PostedStory> = client.db(dbName).collection("postedStories");
     const operations = stories.map(story => ({
         updateOne: {
             filter: { guildId: story.guildId, storyId: story.storyId },
