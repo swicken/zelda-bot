@@ -1,7 +1,7 @@
 {
   "name": "getting-started",
   "version": "1.0.0",
-  "description": "Discord example app",
+  "description": "Zelda news bot for Discord",
   "main": "app.ts",
   "type": "module",
   "engines": {
