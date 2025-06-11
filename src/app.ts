@@ -1,4 +1,4 @@
-import { Client, GatewayIntentBits, TextChannel, DMChannel, EmbedBuilder } from 'discord.js';
+import { Client, GatewayIntentBits, TextChannel, DMChannel, EmbedBuilder, SlashCommandBuilder } from 'discord.js';
 import dotenv from 'dotenv';
 import * as storage from './storage.js';
 import RSSParser from 'rss-parser';
@@ -30,14 +30,28 @@ export function getSourceFromUrl(url: string): string {
 
 if (isMainThread && process.env.NODE_ENV !== 'test') {
     const client = new Client({
-        intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent]
+        intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages]
     });
 
     const numWorkers = 4; // Adjust based on your needs and server capacity
 
-    client.on('ready', () => {
+    async function registerCommands() {
+        const commands = [
+            new SlashCommandBuilder()
+                .setName('startgameupdates')
+                .setDescription('Receive Zelda news updates in this channel'),
+            new SlashCommandBuilder()
+                .setName('stopgameupdates')
+                .setDescription('Stop receiving Zelda news updates in this channel')
+        ];
+
+        await client.application?.commands.set(commands.map(c => c.toJSON()));
+    }
+
+    client.on('ready', async () => {
         console.log(`Logged in as ${client.user?.tag}!`);
         storage.connectDb();
+        await registerCommands();
         startRssFeedChecking();
     });
 
@@ -139,15 +153,18 @@ if (isMainThread && process.env.NODE_ENV !== 'test') {
         }
     }
     
-    client.on('messageCreate', async message => {
-        if (!message.guild || message.author.bot) return;
-        if (message.content.startsWith('!startGameUpdates')) {
-            await storage.saveGuildChannel(message.guild.id, message.channel.id);
-            message.reply('Updates will be sent to this channel.');
+
+    client.on('interactionCreate', async interaction => {
+        if (!interaction.isChatInputCommand() || !interaction.guildId) return;
+        const guildId = interaction.guildId;
+        const channelId = interaction.channelId;
+        if (interaction.commandName === 'startgameupdates') {
+            await storage.saveGuildChannel(guildId, channelId);
+            await interaction.reply({ content: 'Updates will be sent to this channel.', ephemeral: true });
         }
-        if (message.content.startsWith('!stopGameUpdates')) {
-            await storage.removeGuildChannel(message.guild.id);
-            message.reply('Updates will be stopped for this channel.');
+        if (interaction.commandName === 'stopgameupdates') {
+            await storage.removeGuildChannel(guildId);
+            await interaction.reply({ content: 'Updates will be stopped for this channel.', ephemeral: true });
         }
     });
 
