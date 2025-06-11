@@ -18,7 +18,17 @@ const filters = ['zelda', 'a link to the past', 'ocarina of time', 'majora\'s ma
 
 const rssFeeds = JSON.parse(readFileSync(join(__dirname, 'rssFeeds.json'), 'utf8'));
 
-if (isMainThread) {
+export function getSourceFromUrl(url: string): string {
+    try {
+        const hostname = new URL(url).hostname;
+        return hostname.replace('www.', '').split('.')[0];
+    } catch (error) {
+        console.error('Error parsing URL:', error);
+        return 'Unknown Source';
+    }
+}
+
+if (isMainThread && process.env.NODE_ENV !== 'test') {
     const client = new Client({
         intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent]
     });
@@ -58,16 +68,6 @@ if (isMainThread) {
         }
     }
 
-    function getSourceFromUrl(url: string): string {
-        try {
-            const hostname = new URL(url).hostname;
-            return hostname.replace('www.', '').split('.')[0];
-        } catch (error) {
-            console.error('Error parsing URL:', error);
-            return 'Unknown Source';
-        }
-    }
-    
     async function getImageUrlFromArticle(url: string): Promise<string | null> {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 5000);
