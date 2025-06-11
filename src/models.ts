@@ -26,3 +26,8 @@ export interface Story {
         length?: string;
     };
 }
+
+export interface GuildKeywords {
+    guildId: string;
+    keywords: string[];
+}
