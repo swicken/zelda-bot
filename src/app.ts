@@ -36,7 +36,8 @@ if (isMainThread) {
         for (let i = 0; i < numWorkers; i++) {
             const workerFeeds = rssFeeds.feeds.slice(i * feedsPerWorker, (i + 1) * feedsPerWorker);
             const worker = new Worker(__filename, {
-                workerData: { feeds: workerFeeds, filters: filters }
+                workerData: { feeds: workerFeeds, filters: filters },
+                execArgv: process.execArgv
             });
 
             worker.on('message', async (message: { type: string, story: Story }) => {
