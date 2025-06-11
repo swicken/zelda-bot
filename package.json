@@ -1,7 +1,7 @@
 {
   "name": "getting-started",
   "version": "1.0.0",
-  "description": "Discord example app",
+  "description": "Zelda news bot for Discord",
   "main": "app.ts",
   "type": "module",
   "engines": {
@@ -10,7 +10,8 @@
   "scripts": {
     "build": "tsc",
     "start": "node dist/app.js",
-    "dev": "nodemon"
+    "dev": "nodemon",
+    "test": "jest"
   },
   "author": "Shay DeWael",
   "license": "MIT",
@@ -27,6 +28,8 @@
   "devDependencies": {
     "@types/node": "^20.11.0",
     "nodemon": "^2.0.22",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.1.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.3.3"
   }
