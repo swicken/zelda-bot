@@ -9,7 +9,7 @@
   },
   "scripts": {
     "build": "tsc",
-    "start": "node app.js",
+    "start": "node dist/app.js",
     "dev": "nodemon"
   },
   "author": "Shay DeWael",
