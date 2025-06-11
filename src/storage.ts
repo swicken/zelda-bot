@@ -1,6 +1,6 @@
 import { MongoClient, Collection } from 'mongodb';
 import dotenv from 'dotenv';
-import { GuildChannel, PostedStory } from './models';
+import { GuildChannel, PostedStory, GuildKeywords } from './models';
 
 dotenv.config();
 
@@ -131,6 +131,85 @@ async function batchSavePostedStories(stories: Array<{ guildId: string, storyId:
     await collection.bulkWrite(operations);
 }
 
+async function initializeKeywordsForGuild(guildId: string, keywords: string[]): Promise<void> {
+    const collection: Collection<GuildKeywords> = client.db("discordBot").collection("guildKeywords");
+    const existing = await collection.findOne({ guildId });
+    if (!existing) {
+        await collection.insertOne({ guildId, keywords });
+    }
+}
+
+async function addKeyword(guildId: string, keyword: string): Promise<void> {
+    const collection: Collection<GuildKeywords> = client.db("discordBot").collection("guildKeywords");
+    await collection.updateOne(
+        { guildId },
+        { $addToSet: { keywords: keyword.toLowerCase() } },
+        { upsert: true }
+    );
+}
+
+  async function removeKeyword(guildId: string, keyword: string): Promise<void> {
+      const collection: Collection<GuildKeywords> = client.db("discordBot").collection("guildKeywords");
+      await collection.updateOne(
+          { guildId },
+          { $pull: { keywords: keyword.toLowerCase() } }
+      );
+  }
+
+  async function clearKeywords(guildId: string): Promise<void> {
+      const collection: Collection<GuildKeywords> = client.db("discordBot").collection("guildKeywords");
+      await collection.updateOne(
+          { guildId },
+          { $set: { keywords: [] } },
+          { upsert: true }
+      );
+  }
+
+  async function restoreDefaultKeywords(guildId: string, defaults: string[]): Promise<void> {
+      const collection: Collection<GuildKeywords> = client.db("discordBot").collection("guildKeywords");
+      await collection.updateOne(
+          { guildId },
+          { $set: { keywords: defaults } },
+          { upsert: true }
+      );
+  }
+
+async function getGuildKeywords(guildId: string): Promise<string[]> {
+    const collection: Collection<GuildKeywords> = client.db("discordBot").collection("guildKeywords");
+    const doc = await collection.findOne({ guildId });
+    return doc ? doc.keywords : [];
+}
+
+async function getAllGuildKeywords(): Promise<Array<{ guildId: string; keywords: string[] }>> {
+    const collection: Collection<GuildKeywords> = client.db("discordBot").collection("guildKeywords");
+    const docs = await collection.find({}).toArray();
+    return docs.map(doc => ({ guildId: doc.guildId, keywords: doc.keywords }));
+}
+
+async function getAllKeywords(): Promise<string[]> {
+    const all = await getAllGuildKeywords();
+    const set = new Set(all.flatMap(g => g.keywords));
+    return Array.from(set);
+}
 
 
-export { connectDb, saveGuildChannel, getGuildChannel, removeGuildChannel, savePostedStory, hasStoryBeenPosted, getAllGuilds, getGuildsWithChannel, batchSavePostedStories };
+
+export {
+    connectDb,
+    saveGuildChannel,
+    getGuildChannel,
+    removeGuildChannel,
+    savePostedStory,
+    hasStoryBeenPosted,
+    getAllGuilds,
+    getGuildsWithChannel,
+    batchSavePostedStories,
+    initializeKeywordsForGuild,
+    addKeyword,
+    removeKeyword,
+    getGuildKeywords,
+    getAllGuildKeywords,
+    getAllKeywords,
+    clearKeywords,
+    restoreDefaultKeywords
+};
